@@ -1,0 +1,6 @@
+{
+  "uuid": "claude-usage@arjun",
+  "name": "Claude Usage",
+  "description": "Estimated Claude Code usage for the current 5-hour session and the week, as a top-bar icon that turns green, yellow or red. Read from local session logs.",
+  "shell-version": ["50"]
+}
