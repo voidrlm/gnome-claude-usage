@@ -2,6 +2,8 @@
 
 A GNOME Shell extension that shows how much of your Claude usage limits you've used, as a single icon in the top bar.
 
+![Claude Usage icon in the top bar](screenshots/panel.png)
+
 ![Current session and weekly usage in the menu](screenshots/menu.png)
 
 - **Icon colour** shows whichever is closer to its limit, the 5-hour session or the week: green under 50% used, yellow from 50%, red from 80%
@@ -29,6 +31,12 @@ To match your own account, compare with [claude.ai/settings/usage](https://claud
 | `YELLOW_FROM`, `RED_FROM` | Percentages (session or week, whichever is higher) where the icon changes colour |
 
 If your percentage is too high, raise the budget by the same ratio (e.g. shows 60% but claude.ai says 40% → multiply by 1.5).
+
+<details><summary>Where it sits in the top bar</summary>
+
+![The whole top bar](screenshots/top-bar.png)
+
+</details>
 
 ## Install
 
