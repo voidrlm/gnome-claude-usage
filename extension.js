@@ -115,12 +115,14 @@ export default class ClaudeUsage extends Extension {
         this._sessionRow = this._addRow(menu, 'Current session', 'cu-session');
         this._weekRow = this._addRow(menu, 'This week', 'cu-week');
 
-        // Right of the network speed / performance gauge, whatever the load order.
-        const rightBox = Main.panel._rightBox;
-        const left = Main.panel.statusArea['net-speed@arjun']?.container
-            ?? Main.panel.statusArea['system-monitor-panel@arjun']?.container;
-        const idx = left ? rightBox.get_children().indexOf(left) + 1 : 0;
-        Main.panel.addToStatusArea(this.uuid, this._button, idx, 'right');
+        // Left side, just before the workspace indicator (Codex Usage goes
+        // between the two), or at the end if it isn't there.
+        const leftBox = Main.panel._leftBox;
+        const ws = Main.panel.statusArea['workspace-indicator']?.container;
+        const codex = Main.panel.statusArea['codex-usage@arjun']?.container;
+        const before = [codex, ws].find(a => a?.get_parent() === leftBox);
+        const idx = before ? leftBox.get_children().indexOf(before) : leftBox.get_n_children();
+        Main.panel.addToStatusArea(this.uuid, this._button, idx, 'left');
 
         this._scan();
         this._timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, REFRESH_SECONDS, () => {
