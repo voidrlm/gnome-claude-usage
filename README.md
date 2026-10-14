@@ -2,6 +2,8 @@
 
 A GNOME Shell extension that shows how much of your Claude usage limits you've used, as a single icon in the top bar.
 
+![Current session and weekly usage in the menu](screenshots/menu.png)
+
 - **Icon colour** shows whichever is closer to its limit, the 5-hour session or the week: green under 50% used, yellow from 50%, red from 80%
 - **Click it** to see the current session and this week as bars, with when each one resets
 
