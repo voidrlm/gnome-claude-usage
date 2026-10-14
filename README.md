@@ -2,7 +2,7 @@
 
 A GNOME Shell extension that shows how much of your Claude usage limits you've used, as a single icon in the top bar.
 
-- **Icon colour** shows the current 5-hour session: green under 50% used, yellow from 50%, red from 80%
+- **Icon colour** shows whichever is closer to its limit, the 5-hour session or the week: green under 50% used, yellow from 50%, red from 80%
 - **Click it** to see the current session and this week as bars, with when each one resets
 
 Usage is read from Claude Code's local session logs (`~/.claude/projects`). Nothing is sent anywhere and no login is needed.
@@ -24,7 +24,7 @@ To match your own account, compare with [claude.ai/settings/usage](https://claud
 | `SESSION_BUDGET` | Weighted tokens that count as 100% of a 5-hour session |
 | `WEEK_BUDGET` | Weighted tokens that count as 100% of a week |
 | `WEEK_RESET_DAY`, `WEEK_RESET_HOUR` | When your weekly limit resets (0 = Sunday, 6 = Saturday) |
-| `YELLOW_FROM`, `RED_FROM` | Session percentages where the icon changes colour |
+| `YELLOW_FROM`, `RED_FROM` | Percentages (session or week, whichever is higher) where the icon changes colour |
 
 If your percentage is too high, raise the budget by the same ratio (e.g. shows 60% but claude.ai says 40% → multiply by 1.5).
 

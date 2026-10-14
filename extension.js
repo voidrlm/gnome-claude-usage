@@ -19,9 +19,12 @@ const SESSION = 5 * HOUR;
 const WEEK = 7 * 24 * HOUR;
 // A day of slack so the session window running into the week start is known.
 const KEEP = WEEK + 24 * HOUR;
-// Panel icon colour by how much of the 5-hour session is used.
+// Panel icon colour by whichever of the session or the week is closer to
+// its limit.
 const YELLOW_FROM = 50;
 const RED_FROM = 80;
+// Usage bar width in CSS px; the fill is a fraction of it.
+const BAR_WIDTH = 170;
 const CHUNK = 1 << 20;
 const ATTRS = 'standard::name,standard::type,standard::size,time::modified';
 const decoder = new TextDecoder();
@@ -243,7 +246,8 @@ export default class ClaudeUsage extends Extension {
         const weekPct = costOf(sorted.filter(e => e.t >= ws)) / WEEK_BUDGET * 100;
         this._setRow(this._weekRow, weekPct, fmtReset(ws + WEEK));
 
-        const level = sessionPct >= RED_FROM ? 'red' : sessionPct >= YELLOW_FROM ? 'yellow' : 'green';
+        const worst = Math.max(sessionPct, weekPct);
+        const level = worst >= RED_FROM ? 'red' : worst >= YELLOW_FROM ? 'yellow' : 'green';
         if (this._icon.gicon !== this._icons[level]) this._icon.gicon = this._icons[level];
     }
 
@@ -256,7 +260,13 @@ export default class ClaudeUsage extends Extension {
         const sub = new St.Label({text: '', style_class: 'cu-sub'});
         text.add_child(sub);
         box.add_child(text);
-        const bg = new St.Widget({style_class: `cu-bar-bg ${barClass}`, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+        const bg = new St.Widget({
+            style_class: `cu-bar-bg ${barClass}`,
+            style: `width: ${BAR_WIDTH}px;`,
+            x_expand: true,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
         const fg = new St.Widget({style_class: `cu-bar-fg ${barClass}`});
         bg.add_child(fg);
         box.add_child(bg);
@@ -264,14 +274,13 @@ export default class ClaudeUsage extends Extension {
         box.add_child(pct);
         item.add_child(box);
         menu.addMenuItem(item);
-        const row = {sub, bg, fg, pct, frac: 0};
-        bg.connect('notify::width', () => fg.set_width(Math.round(bg.width * row.frac)));
-        return row;
+        return {sub, fg, pct};
     }
 
     _setRow(row, percent, resetText) {
-        row.frac = Math.min(1, percent / 100);
-        row.fg.set_width(Math.round(row.bg.width * row.frac));
+        // Fixed widths in CSS, never measured: measuring the bar while the
+        // menu is closed returned the fill's own width and it kept shrinking.
+        row.fg.style = `width: ${Math.round(BAR_WIDTH * Math.min(1, percent / 100))}px;`;
         row.pct.text = `${Math.round(percent)}% used`;
         row.sub.text = resetText;
     }
