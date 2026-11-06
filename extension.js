@@ -332,7 +332,7 @@ export default class ClaudeUsage extends Extension {
     _addRow(menu, title, barClass) {
         const item = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
         const box = new St.BoxLayout({style_class: 'cu-row', x_expand: true});
-        const text = new St.BoxLayout({vertical: true, style_class: 'cu-text', y_align: Clutter.ActorAlign.CENTER});
+        const text = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, style_class: 'cu-text', y_align: Clutter.ActorAlign.CENTER});
         text.add_child(new St.Label({text: title, style_class: 'cu-title'}));
         const sub = new St.Label({text: '', style_class: 'cu-sub'});
         text.add_child(sub);
