@@ -101,6 +101,11 @@ export default class ClaudeUsage extends Extension {
         // path -> {offset, partial}: files are read incrementally.
         this._files = new Map();
         this._cancellable = new Gio.Cancellable();
+        // The account these figures are for, read from ~/.claude.json.
+        this._activeOrg = null;
+        this._activeEmail = null;
+        this._configPath = null;
+        this._configMtime = 0;
 
         this._button = new PanelMenu.Button(0.5, this.metadata.name);
         // Just an icon, like the system icons next to it; its colour shows how
@@ -112,6 +117,11 @@ export default class ClaudeUsage extends Extension {
 
         const menu = this._button.menu;
         menu.box.add_style_class_name('cu-menu');
+        // Which account the figures below belong to; kept in step with /login.
+        this._acctItem = new PopupMenu.PopupMenuItem('', {reactive: false, can_focus: false});
+        this._acctItem.label.add_style_class_name('cu-acct');
+        menu.addMenuItem(this._acctItem);
+        menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this._sessionRow = this._addRow(menu, 'Current session', 'cu-session');
         this._weekRow = this._addRow(menu, 'This week', 'cu-week');
 
@@ -131,10 +141,53 @@ export default class ClaudeUsage extends Extension {
         });
     }
 
+    // Candidate paths for Claude Code's config holding the logged-in account.
+    _configPaths() {
+        const env = GLib.getenv('CLAUDE_CONFIG_DIR');
+        const paths = [];
+        if (env)
+            for (const b of env.split(',').map(s => s.trim()).filter(Boolean))
+                paths.push(GLib.build_filenamev([b, '.claude.json']));
+        paths.push(GLib.build_filenamev([GLib.get_home_dir(), '.claude.json']));
+        return paths;
+    }
+
+    // Reads the active account (org + email) from config, re-parsing only when
+    // the file's mtime changes. /login rewrites this file, so the panel follows
+    // an account switch within one refresh. Unknown org => count every account.
+    _refreshActiveAccount() {
+        for (const path of this._configPaths()) {
+            const f = Gio.File.new_for_path(path);
+            let mt;
+            try {
+                mt = f.query_info('time::modified', Gio.FileQueryInfoFlags.NONE, null)
+                    .get_modification_date_time()?.to_unix() ?? 0;
+            } catch (e) {
+                continue; // not this path
+            }
+            if (path === this._configPath && mt === this._configMtime) return;
+            try {
+                const [ok, bytes] = GLib.file_get_contents(path);
+                if (!ok) continue;
+                const oa = JSON.parse(decoder.decode(bytes)).oauthAccount;
+                this._activeOrg = oa?.organizationUuid ?? null;
+                this._activeEmail = oa?.emailAddress ?? oa?.displayName ?? null;
+                this._configPath = path;
+                this._configMtime = mt;
+            } catch (e) {
+                // Keep the last good values on a transient read/parse error.
+            }
+            return;
+        }
+        this._activeOrg = null;
+        this._activeEmail = null;
+    }
+
     async _scan() {
         if (this._busy) return;
         this._busy = true;
         try {
+            this._refreshActiveAccount();
             const cutoff = Date.now() - KEEP;
             for (const dir of projectDirs())
                 await this._scanDir(Gio.File.new_for_path(dir), cutoff, 0);
@@ -207,14 +260,23 @@ export default class ClaudeUsage extends Extension {
                 st.partial = buf.slice(end);
                 if (!end) continue;
                 for (const line of decoder.decode(buf.subarray(0, end)).split('\n'))
-                    this._ingest(line, cutoff);
+                    this._ingest(line, cutoff, st, path);
             }
         } finally {
             stream.close(null);
         }
     }
 
-    _ingest(line, cutoff) {
+    _ingest(line, cutoff, st, path) {
+        // Claude Code writes a "credential_org" attachment line carrying the
+        // active account's org uuid; tag the whole file with it so usage can be
+        // split per account (one account per file, no mid-session switch).
+        if (line.includes('organizationUuid')) {
+            try {
+                const o = JSON.parse(line).attachment?.organizationUuid;
+                if (typeof o === 'string') st.org = o;
+            } catch (e) { /* not an org line we can read */ }
+        }
         // Cheap filter first: most lines are user turns and tool output.
         if (!line.includes('"usage"') || !line.includes('"assistant"')) return;
         let d;
@@ -230,6 +292,7 @@ export default class ClaudeUsage extends Extension {
         const w = WEIGHTS;
         this._entries.set(`${m.id}:${d.requestId}`, {
             t,
+            file: path,
             cost: (u.input_tokens ?? 0) * w.inp + (u.output_tokens ?? 0) * w.out +
                   (u.cache_creation_input_tokens ?? 0) * w.cw + (u.cache_read_input_tokens ?? 0) * w.cr,
         });
@@ -238,7 +301,19 @@ export default class ClaudeUsage extends Extension {
     _update() {
         if (!this._button) return;
         const now = Date.now();
-        const sorted = [...this._entries.values()].sort((a, b) => a.t - b.t);
+
+        // Count only the account shown in the panel. Files with no org tag
+        // (short sessions with no attachments) fall back to the active account;
+        // if the active account is unknown, show every account.
+        const active = this._activeOrg;
+        const orgOf = e => this._files.get(e.file)?.org ?? null;
+        const mine = active
+            ? e => { const o = orgOf(e); return o === null || o === active; }
+            : () => true;
+        if (this._acctItem)
+            this._acctItem.label.text = this._activeEmail
+                ? `Account: ${this._activeEmail}` : 'All accounts';
+        const sorted = [...this._entries.values()].filter(mine).sort((a, b) => a.t - b.t);
 
         const win = sessionWindow(sorted, now);
         const sessionPct = win ? costOf(win.list) / SESSION_BUDGET * 100 : 0;
@@ -295,6 +370,7 @@ export default class ClaudeUsage extends Extension {
         this._cancellable?.cancel();
         this._button?.destroy();
         this._button = this._icon = this._icons = this._sessionRow = this._weekRow = null;
+        this._acctItem = null;
         this._entries = this._files = this._cancellable = null;
         this._busy = false;
     }

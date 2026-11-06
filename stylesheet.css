@@ -1,5 +1,6 @@
 
 .cu-menu { min-width: 420px; }
+.cu-acct { font-size: 0.85em; color: rgba(255,255,255,0.55); }
 .cu-row { spacing: 18px; padding: 6px 0; }
 .cu-text { min-width: 150px; spacing: 2px; }
 .cu-title { font-weight: bold; }
